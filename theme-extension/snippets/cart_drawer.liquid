@@ -1,0 +1,531 @@
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const protectPlusContainer = document.querySelector('.protectPlus');
+
+    if (protectPlusContainer) {
+      protectPlusContainer.innerHTML = `
+        <div class="toggle-container">
+          <div class="more-banner"></div>
+          <div class="blue-box">
+            <img src="{{ 'logo.png' | asset_img_url: '40x' }}" height="40" width="40" loading="lazy">
+          </div>
+          <div class="md-bk-rm flex-col">
+            <div class="tagline">
+              <h2>Protect+ Package Protection</h2>
+              <p>Protection Against Lost, Stolen or Damaged Goods</p>
+            </div>
+            <div>
+         <small class="price-calculatePerPriceToFrontend"></small>
+            <label class="switch">
+              <input type="checkbox" class="toggle-switch">
+              <span class="slider"></span>
+            </label>
+            </div>
+          </div>
+          <p class="toggle-status"></p>
+        </div>
+        <p class="variant-dynamic"></p>
+        <p class="percentage-price-data"></p>
+        <p class="minimum-cost-price-data"></p>
+        <p class="set-enable-disable-toggle-check"></p>
+      `;
+
+
+
+      // Get the current shop name
+      const getShopName = '{{ shop.permanent_domain }}';
+
+
+      const fetchMainUrl = `https://remix-protectplus.fly.dev`;
+
+      async function fetchDiscountPercentage() {
+        let percentage;
+        let setEnabledisableToggle;
+        let mimimumCostPrice;
+        try {
+          const response = await fetch(`${fetchMainUrl}/api/disPercentage?shop=${getShopName}`);
+          const data = await response.json();
+          if (data && data.storePercentageData) {
+            const matchedShopData = data.storePercentageData.find((item) => item.shop === getShopName);
+            if (matchedShopData) {
+              const { discountPercentage, enabledisable, min_cost } = matchedShopData;
+              percentage = discountPercentage;
+              setEnabledisableToggle = enabledisable;
+              mimimumCostPrice = min_cost;
+            } else {
+              console.error('Error: No matching shop found in the data');
+            }
+          } else {
+            console.error('Error: Data structure is not as expected');
+          }
+          const toggleContainer = protectPlusContainer.querySelector('.toggle-container');
+          if (setEnabledisableToggle === false) {
+            toggleContainer.classList.add('hidden');
+          } else {
+            toggleContainer.classList.remove('hidden');
+          }
+          localStorage.setItem('percentage', percentage);
+          localStorage.setItem('mimimumCostPrice', mimimumCostPrice);
+          localStorage.setItem('setEnabledisableToggle', setEnabledisableToggle);
+        } catch (error) {
+          console.error('Error:', error);
+        }
+      }
+      fetchDiscountPercentage();
+
+      (async function () {
+        async function fetchData() {
+          try {
+            const response = await fetch(`${fetchMainUrl}/api/get?shop=${getShopName}`);
+            const data = await response.json();
+            console.log("fetching data", data);
+            const variantIdData = data.variantId;
+            localStorage.setItem('variantIdData', variantIdData);
+            console.log(variantIdData, 'current variant');
+          } catch (error) {
+            console.error('Error:', error);
+          }
+        }
+        await fetchData();
+      })();
+
+      let percentagePriceData = localStorage.getItem('percentage');
+      let mimimumCostPriceData = localStorage.getItem('mimimumCostPrice');
+      let setEnabledisableToggleCheck = localStorage.getItem('setEnabledisableToggle');
+      protectPlusContainer.querySelector('.percentage-price-data').innerHTML = percentagePriceData;
+      protectPlusContainer.querySelector('.minimum-cost-price-data').innerHTML = mimimumCostPriceData;
+      protectPlusContainer.querySelector('.set-enable-disable-toggle-check').innerHTML = mimimumCostPriceData;
+      let variantId = localStorage.getItem('variantIdData');
+      protectPlusContainer.querySelector('.variant-dynamic').innerHTML = variantId;
+      protectPlusContainer.querySelector('.variant-dynamic').style.display = 'none';
+      protectPlusContainer.querySelector('.percentage-price-data').style.display = 'none';
+      protectPlusContainer.querySelector('.minimum-cost-price-data').style.display = 'none';
+      protectPlusContainer.querySelector('.set-enable-disable-toggle-check').style.display = 'none';
+      var toggleSwitch = protectPlusContainer.querySelector('.toggle-switch');
+      toggleSwitch.checked = localStorage.getItem('checkboxStatus') === 'true';
+
+      fetch( 'cart.js')
+        .then((response) => response.json())
+        .then((data) => {
+          const hasItemWithSKU = data.items.some((item) => item.sku === '002286');
+          if (localStorage.getItem('checkboxStatus') != null) {
+            localStorage.setItem('checkboxStatus', hasItemWithSKU ? 'true' : 'false');
+            toggleSwitch.checked = localStorage.getItem('checkboxStatus') === 'true';
+            console.log('check box is checked');
+          } else {
+            console.log('check box is not checked or null');
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching cart data:', error);
+        });
+
+      protectPlusContainer.addEventListener('click', function () {
+        setTimeout(function () {
+          localStorage.setItem('checkboxStatus', toggleSwitch.checked);
+          if (toggleSwitch.checked) {
+            fetch( 'cart.js')
+              .then((response) => response.json())
+              .then((data) => {
+                const totalDiscount = data.items.reduce((total, item) => {
+                  if (item.sku !== '002286') {
+                    return total + item.final_line_price;
+                  } else {
+                    return total;
+                  }
+                }, 0);
+                console.log(totalDiscount, 'Total 1111');
+                callupdatecart(totalDiscount);
+              })
+              .catch((error) => {
+                console.error('Error fetching cart data:', error);
+              });
+          } else {
+            console.log('else');
+            callApiRemoveToCart();
+          }
+        }, 2000);
+      });
+
+      toggleSwitch.addEventListener('change', function () {
+        localStorage.setItem('checkboxStatus', toggleSwitch.checked);
+        if (toggleSwitch.checked) {
+          fetch('cart/change.js')
+            .then((response) => response.json())
+            .then((data) => {
+              const totalDiscount = data.items.reduce((total, item) => {
+                if (item.sku !== '002286') {
+                  return total + item.final_line_price;
+                } else {
+                  return total;
+                }
+              }, 0);
+              console.log(totalDiscount, 'Total 1111');
+              callApiAddToCart(totalDiscount);
+            })
+            .catch((error) => {
+              console.error('Error fetching cart data:', error);
+            });
+        } else {
+          console.log('else');
+          callApiRemoveToCart();
+        }
+      });
+
+
+
+      {% comment %} async function calculatePerPriceToFrontend() {
+        try {
+          // Example value, make sure to set this to the correct value
+          let percentagePriceDataCheck = localStorage.getItem('percentage');
+
+          // Ensure percentagePriceDataCheck is a valid number
+          percentagePriceDataCheck = parseFloat(percentagePriceDataCheck);
+          if (isNaN(percentagePriceDataCheck)) {
+            throw new Error('percentagePriceData is not a number');
+          }
+
+          // Fetch cart data
+          const response = await fetch(window.Shopify.routes.root + 'cart.js');
+          const data = await response.json();
+
+          // Calculate total discount excluding item with sku "002286"
+          const totalDiscountData = data.items.reduce((total, item) => {
+            return item.sku !== '002286' ? total + item.final_line_price : total;
+          }, 0);
+
+          let totalDiscountAmontData = totalDiscountData / 100;
+          if (totalDiscountAmontData === 0) {
+            totalDiscountAmontData = null;
+          }
+
+          // Create a number formatter based on the cart's currency
+          const currencyFormatter = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: data.currency,
+          });
+
+          // Calculate the price based on percentage
+          if (totalDiscountAmontData !== null) {
+            const calculatedPrice = totalDiscountAmontData * (percentagePriceDataCheck / 100);
+            const formattedPrice = currencyFormatter.format(calculatedPrice);
+
+            // Display the formattedPrice in the HTML element
+            const priceElement = document.querySelector('.price-calculatePerPriceToFrontend');
+            if (priceElement) {
+              priceElement.textContent = formattedPrice;
+            } else {
+              console.error('Element with class "price-calculatePerPriceToFrontend" not found');
+            }
+          } else {
+            console.log('Total discount amount is null, skipping calculation.');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+        }
+      } {% endcomment %}
+
+
+      async function calculatePerPriceToFrontend() {
+        try {
+            // Retrieve values from localStorage and validate them
+            let percentagePriceDataCheck = localStorage.getItem('percentage');
+            let mimimumCostPriceDataCheck = localStorage.getItem('mimimumCostPrice');
+    
+            percentagePriceDataCheck = parseFloat(percentagePriceDataCheck);
+            mimimumCostPriceDataCheck = parseFloat(mimimumCostPriceDataCheck);
+    
+            if (isNaN(percentagePriceDataCheck)) {
+                throw new Error('percentagePriceData is not a number');
+            }
+    
+            if (isNaN(mimimumCostPriceDataCheck)) {
+                throw new Error('mimimumCostPrice is not a number');
+            }
+    
+            // Fetch cart data
+            const response = await fetch( 'cart.js');
+            const data = await response.json();
+    
+            // Calculate total discount excluding item with sku "002286"
+            const totalDiscountData = data.items.reduce((total, item) => {
+                return item.sku !== "002286" ? total + item.final_line_price : total;
+            }, 0);
+    
+            let totalDiscountAmontData = totalDiscountData / 100;
+            if (totalDiscountAmontData === 0) {
+                totalDiscountAmontData = null;
+            }
+    
+            // Create a currency formatter based on the cart's currency
+            const currencyFormatter = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: data.currency,
+            });
+    
+            if (totalDiscountAmontData !== null) {
+                // Calculate the price based on percentage
+                const calculatedPrice = totalDiscountAmontData * (percentagePriceDataCheck / 100);
+                let finalPrice;
+    
+                // Compare the calculated price with mimimumCostPriceDataCheck
+                if (calculatedPrice < mimimumCostPriceDataCheck) {
+                    finalPrice = mimimumCostPriceDataCheck;
+                } else {
+                    finalPrice = calculatedPrice;
+                }
+    
+                // Format the final price with currency sign
+                const formattedPrice = currencyFormatter.format(finalPrice);
+    
+                // Display the formatted price in the HTML element
+                const priceElement = document.querySelector(".price-calculatePerPriceToFrontend");
+                if (priceElement) {
+                    priceElement.textContent = formattedPrice;
+                } else {
+                    console.error('Element with class ".price-calculatePerPriceToFrontend" not found');
+                }
+            } else {
+                console.log('Total discount amount is null, skipping calculation.');
+            }
+    
+        } catch (error) {
+            console.error('Error:', error);
+        }
+      };
+
+      calculatePerPriceToFrontend();
+
+      function callApiAddToCart(totalDiscount) {
+        var t = localStorage.getItem('variantIdsString');
+        let variantId = localStorage.getItem('variantIdData');
+        console.log(variantId, 'stored in localStorage');
+        let totalDiscountAmont = totalDiscount / 100;
+        if (totalDiscountAmont === 0) {
+          totalDiscountAmont = null;
+        }
+        localStorage.setItem('totalDiscountAmont', totalDiscountAmont);
+        console.log(totalDiscountAmont, 'totalDiscountAmont');
+        t = {
+          items: [
+            {
+              id: variantId,
+              quantity: 1,
+              properties: {
+                _discount_price: totalDiscountAmont,
+                _Insurance: `${percentagePriceData}%`,
+                _minmum_price: `${mimimumCostPriceData}`,
+              },
+            },
+          ],
+        };
+        fetch( 'cart/add.js', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(t),
+        })
+          .then((t) => (t.json()))
+          .catch((t) => {
+            console.error('Error:', t);
+          });
+      }
+
+      function callupdatecart(totleDiscount) {
+        var t = localStorage.getItem('variantIdsString');
+        let variantId = localStorage.getItem('variantIdData');
+        t = {
+          id: variantId,
+          quantity: 0,
+        };
+        console.log("cart item",t);
+        fetch('cart/change.js', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(t),
+        })
+          .then((t) => callApiAddToCart(totleDiscount))
+          .catch((t) => {
+            console.error('Error:', t);
+          });
+      }
+
+      function callApiRemoveToCart() {
+        var t = localStorage.getItem('variantIdsString');
+        let variantId = localStorage.getItem('variantIdData');
+        t = {
+          id: variantId,
+          quantity: 0,
+        };
+        fetch( 'cart/change.js', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(t),
+        })
+          .then((t) => ((window.location.href = ''), t.json()))
+          .catch((t) => {
+            console.error('Error:', t);
+          });
+      }
+    }
+  });
+</script>
+
+<style>
+  small.price-calculatePerPriceToFrontend {
+    position: absolute;
+    top: 12px;
+    margin-left: 20px !important;
+  }
+
+  .protectPlus .tagline h2 {
+    font-size: 24px !important;
+    font-family: -apple-system, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+      'Open Sans', 'Helvetica Neue', sans-serif;
+    font-weight: 500;
+  }
+  .protectPlus .tagline p {
+    font-size: 15px !important;
+    font-family: -apple-system, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+      'Open Sans', 'Helvetica Neue', sans-serif;
+  }
+  .protectPlus .toggle-container.hidden {
+    display: none !important;
+  }
+  .protectPlus .flex-col {
+    display: flex;
+    column-gap: 0 !important;
+    align-items: center;
+    margin-bottom: 0px !important;
+  }
+  .protectPlus span.more-banner {
+    display: flex;
+    background: #00f;
+    height: 50px;
+    width: 50px;
+    border-radius: 10px;
+  }
+  .protectPlus .flex-col .tagline h2,
+  .protectPlus .flex-col .tagline p {
+    margin: 0;
+    padding: 0;
+    color: #000;
+  }
+  .protectPlus .flex-col .tagline h2 {
+    font-size: 15px !important;
+    letter-spacing: 0;
+    line-height: 22px;
+  }
+  .protectPlus .flex-col .tagline p {
+    font-size: 12px !important;
+    letter-spacing: 0;
+    line-height: 20px;
+  }
+  .protectPlus .toggle-container {
+    display: flex;
+    column-gap: 10px;
+    justify-content: flex-start;
+    align-items: center;
+    box-shadow: 1px 2px 3px #ccc;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    display: flex !important;
+    position: relative;
+  }
+  .protectPlus .flex-col {
+    display: flex;
+    column-gap: 30px;
+    align-items: center;
+  }
+  .protectPlus .switch {
+    position: absolute;
+    display: inline-block;
+    width: 51px;
+    height: 28px;
+    right: 10px;
+  }
+  .protectPlus .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .protectPlus .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: 0.4s;
+    transition: 0.4s;
+    border-radius: 34px;
+  }
+  .protectPlus .slider:before {
+    position: absolute;
+    content: '';
+    height: 22px;
+    width: 22px;
+    left: 1px;
+    bottom: 3px;
+    background-color: #fff;
+    -webkit-transition: 0.4s;
+    transition: 0.4s;
+    border-radius: 50%;
+  }
+  .protectPlus input:checked + .slider {
+    background-color: #385df4;
+  }
+  .protectPlus input:focus + .slider {
+    box-shadow: 0 0 1px #2196f3;
+  }
+  .protectPlus input:checked + .slider:before {
+    -webkit-transform: translateX(26px);
+    -ms-transform: translateX(26px);
+    transform: translateX(26px);
+  }
+  .protectPlus .toggle-status {
+    margin-top: 10px;
+  }
+  .protectPlus .blue-box {
+    width: 50px;
+    height: 50px;
+    color: #385df4;
+    border-radius: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .protectPlus .toggle-container .tagline {
+    max-width: 80%;
+  }
+  @media screen and (max-width: 749px) {
+    .protectPlus .toggle-container {
+      justify-content: center;
+      max-width: 350px;
+      float: none;
+      margin: 0 auto;
+    }
+  }
+  @media screen and (max-width: 427px) {
+    .protectPlus input:checked + .slider:before {
+      -webkit-transform: translateX(23px);
+      -ms-transform: translateX(23px);
+      transform: translateX(23px);
+    }
+  }
+  @media screen and (max-width: 333px) {
+    .protectPlus .blue-box {
+      width: 45px;
+    }
+    .protectPlus .toggle-container .tagline {
+      max-width: 75%;
+    }
+  }
+</style>

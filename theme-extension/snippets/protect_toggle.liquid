@@ -1,0 +1,707 @@
+<div class="toggle-container">
+  <div class="more-banner"></div>
+  <div class="blue-box">
+    <img src="{{ "logo.png" | asset_img_url: '40x' }}" height="40" width="40" loading="lazy">
+  </div>
+  <div class="md-bk-rm flex-col">
+    <div class="tagline">
+      <h2>Protect+ Package Protection</h2>
+      <p>Protection Against Lost, Stolen or Damaged Goods</p>
+    </div>
+    <div>
+      <small class="price-calculatePerPriceToFrontendData"></small>
+      <label class="switch">
+        <input type="checkbox" id="toggleSwitch" checked>
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+  <p id="toggleStatus"></p>
+</div>
+<p id="variantDynamic"></p>
+<p id="percentagePriceData"></p>
+<p id="mimimumCostPriceData"></p>
+<p id="setEnabledisableToggleCheck"></p>
+<script>
+
+
+  // Get the current shop name
+  const getShopName = '{{ shop.permanent_domain }}';
+
+
+
+
+
+  const fetchMainUrl = `https://remix-protectplus.fly.dev`;
+  async function fetchDiscountPercentage() {
+    let percentage;
+    let setEnabledisableToggle;
+    let mimimumCostPrice;
+    try {
+      const response = await fetch(`${fetchMainUrl}/api/disPercentage?shop=${getShopName}`);
+      const data = await response.json();
+      console.log("shopName", getShopName, "data", data);
+      if (data && data.storePercentageData) {
+        const matchedShopData = data.storePercentageData.find((item) => item.shop === getShopName);
+        if (matchedShopData) {
+          const { discountPercentage, enabledisable, min_cost } = matchedShopData;
+          percentage = discountPercentage;
+          setEnabledisableToggle = enabledisable;
+          mimimumCostPrice = min_cost;
+        } else {
+          console.error('Error: No matching shop found in the data');
+        }
+      } else {
+        console.error('Error: Data structure is not as expected');
+      }
+      const toggleContainer = document.querySelector('.toggle-container');
+      if (setEnabledisableToggle === false) {
+        toggleContainer.classList.add('hidden'); // Add a class to hide
+      } else {
+        toggleContainer.classList.remove('hidden'); // Remove the class to show
+      }
+      localStorage.setItem('percentage', percentage);
+      localStorage.setItem('mimimumCostPrice', mimimumCostPrice);
+      localStorage.setItem('setEnabledisableToggle', setEnabledisableToggle);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+  fetchDiscountPercentage();
+  {% comment %} async function fetchData() {
+    try {
+      const response = await fetch(`${fetchMainUrl}/api/get?shop=${accessShop[0]}`);
+      const data = await response.json();
+      const variantIdData = data.variantId;
+      localStorage.setItem('variantIdData', variantIdData);
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+  fetchData(); {% endcomment %}
+
+
+  (async function() {
+    async function fetchData() {
+      try {
+        const response = await fetch(`${fetchMainUrl}/api/get?shop=${getShopName}`);
+        const data = await response.json();
+        const variantIdData = data.variantId;
+        localStorage.setItem('variantIdData', variantIdData);
+        console.log(variantIdData, "currect  variant");
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+  
+    // Call the fetchData function immediately
+    await fetchData();
+  })();
+  
+  let percentagePriceData = localStorage.getItem('percentage');
+  let mimimumCostPriceData = localStorage.getItem('mimimumCostPrice');
+  let setEnabledisableToggleCheck = localStorage.getItem('setEnabledisableToggle');
+  document.getElementById('percentagePriceData').innerHTML = percentagePriceData;
+  document.getElementById('mimimumCostPriceData').innerHTML = mimimumCostPriceData;
+  document.getElementById('setEnabledisableToggleCheck').innerHTML = mimimumCostPriceData;
+  let variantId = localStorage.getItem('variantIdData');
+  document.getElementById('variantDynamic').innerHTML = variantId;
+  document.getElementById('variantDynamic').style.display = 'none';
+  document.getElementById('percentagePriceData').style.display = 'none';
+  document.getElementById('mimimumCostPriceData').style.display = 'none';
+  document.getElementById('setEnabledisableToggleCheck').style.display = 'none';
+  var toggleSwitch = document.getElementById('toggleSwitch');
+  toggleSwitch.checked = localStorage.getItem('checkboxStatus') === 'true';
+   fetch( 'cart.js')
+  .then(response => response.json())
+  .then(data => {
+    const hasItemWithSKU = data.items.some(item => item.sku === '002286');
+    if(localStorage.getItem('checkboxStatus')!=null) {
+    localStorage.setItem('checkboxStatus', hasItemWithSKU ? 'true' : 'false');
+    toggleSwitch.checked = localStorage.getItem('checkboxStatus') === 'true';
+    console.log('check box is checked ');
+
+    }else{
+    console.log('check box is not checked or null');
+    }
+  })
+  .catch(error => {
+    console.error('Error fetching cart data:', error);
+  });
+
+  {% comment %} function fetchCartData() {
+    fetch('/cart.js')
+      .then(response => response.json())
+      .then(cart => {
+          localStorage.setItem('checkboxStatus', toggleSwitch.checked);
+          if (toggleSwitch.checked) {
+            const totalDiscount = cart.items.reduce((total, item) => {
+              // Check if the sku is not equal to "002286"
+              if (item.sku !== "002286") {
+                return total + item.final_line_price;
+              } else {
+                return total;
+              }
+            }, 0);
+            console.log(`totalDiscount ${totalDiscount}`);
+            callupdatecart(totalDiscount);
+          } else {
+            console.log('else ');
+            callApiRemoveToCart();
+          }
+        console.log('Cart Updated:', cart);
+      })
+      .catch(error => {
+        console.error('Error fetching cart data:', error);
+      });
+  }
+
+  document.addEventListener('cart:updated', function(event) {
+    console.log('Cart update event detected event => ',event);
+    fetchCartData(); // Fetch and log cart details after update
+  });
+
+
+  // Function to handle quantity change
+  function handleQuantityChange(event) {
+    const input = event.target;
+    const newQuantity = input.value;
+    const itemKey = input.getAttribute('data-cart-item-key'); // Assuming Shopify sets data-cart-item-key on the input
+    console.log(`Quantity changed for item ${itemKey} to ${newQuantity}`);
+    
+    // Wait for the Shopify cart update to happen
+    setTimeout(fetchCartData, 500); // Small delay to ensure the cart update finishes before fetching new data
+  }
+
+  // Select all quantity inputs on the cart page
+  const quantityInputs = document.querySelectorAll('input[type="number"][name="updates[]"]');
+
+  // Add event listeners to detect changes in quantity
+  quantityInputs.forEach(input => {
+    input.addEventListener('change', handleQuantityChange);
+  }); {% endcomment %}
+
+
+  function fetchCartData() {
+    fetch('/cart.js')
+      .then(response => response.json())
+      .then(cart => {
+          localStorage.setItem('checkboxStatus', toggleSwitch.checked);
+          if (toggleSwitch.checked) {
+            const totalDiscount = cart.items.reduce((total, item) => {
+              // Check if the sku is not equal to "002286"
+              if (item.sku !== "002286") {
+                return total + item.final_line_price;
+              } else {
+                return total;
+              }
+            }, 0);
+            console.log(`totalDiscount ${totalDiscount}`);
+            callApiAddToCart(totalDiscount);
+          } else {
+            console.log('else ');
+            callApiRemoveToCart();
+          }
+        console.log('Cart Updated:', cart);
+      })
+      .catch(error => {
+        console.error('Error fetching cart data:', error);
+      });
+  }
+
+  // Function to handle quantity change using Shopify's AJAX API
+  function updateCart(itemKey, newQuantity) {
+    fetch('/cart/change.js', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id: itemKey, // Shopify's cart item key
+        quantity: newQuantity, // Updated quantity
+      }),
+    })
+      .then(response => response.json())
+      .then(data => {
+        console.log('Cart item updated:', data);
+        // Optionally refresh part of the page with new cart data
+        //fetchCartData(); // Log updated cart data
+          if (toggleSwitch.checked) {
+            const totalDiscount = data.items.reduce((total, item) => {
+              // Check if the sku is not equal to "002286"
+              if (item.sku !== "002286") {
+                return total + item.final_line_price;
+              } else {
+                return total;
+              }
+            }, 0);
+            console.log(`totalDiscount ${totalDiscount}`);
+            callApiAddToCart(totalDiscount);
+          } else {
+            console.log('else ');
+            callApiRemoveToCart();
+          }
+      })
+      .catch(error => {
+        console.error('Error updating cart:', error);
+      });
+  }
+
+  // Function to handle quantity change event
+  function handleQuantityChange(event) {
+    event.preventDefault(); // Prevent default form submission
+
+    const input = event.target;
+    const newQuantity = parseInt(input.value);
+    const itemKey = input.getAttribute('data-quantity-variant-id'); // Ensure you have a data-cart-item-key on the input
+    console.log(itemKey, newQuantity);
+    if (itemKey && newQuantity >= 0) {
+      updateCart(itemKey, newQuantity);
+    }
+  }
+
+  // Intercept form submission and handle quantity input change
+  const quantityInputs = document.querySelectorAll('input[type="number"][name="updates[]"]');
+  quantityInputs.forEach(input => {
+    input.addEventListener('change', handleQuantityChange);
+  });
+
+  // Prevent cart form submission from reloading the page
+  const cartForm = document.querySelector('form[action="/cart"]');
+  if (cartForm) {
+    cartForm.addEventListener('submit', function (event) {
+      event.preventDefault(); // Prevent form from reloading the page
+    });
+  }
+
+
+
+  {% comment %} document.querySelector('body').addEventListener("click", function() {
+    setTimeout(function() {
+      localStorage.setItem('checkboxStatus', toggleSwitch.checked);
+      if (toggleSwitch.checked) {
+        fetch(window.Shopify.routes.root + 'cart.js')
+          .then(response => response.json())
+          .then(data => {
+            const totalDiscount = data.items.reduce((total, item) => {
+              // Check if the sku is not equal to "002286"
+              if (item.sku !== "002286") {
+                return total + item.final_line_price;
+              } else {
+                return total;
+              }
+            }, 0);;
+            console.log(totalDiscount,"Total 1111")
+            callupdatecart(totalDiscount);
+          })
+          .catch(error => {
+            console.error('Error fetching cart data:', error);
+          });
+      } else {
+        console.log('else ');
+        callApiRemoveToCart();
+      }
+      }, 2000);
+          
+  }); {% endcomment %}
+  {% comment %} toggleSwitch.addEventListener('change', function () {
+    localStorage.setItem('checkboxStatus', toggleSwitch.checked);
+    if (toggleSwitch.checked) {
+      fetch('/cart.js')
+        .then(response => response.json())
+        .then(data => {
+          console.log(`checkboxStatus function ${data}`);
+          const totalDiscount = data.items.reduce((total, item) => {
+            // Check if the sku is not equal to "002286"
+            if (item.sku !== "002286") {
+              return total + item.final_line_price;
+            } else {
+              return total;
+            }
+          }, 0);
+          console.log(totalDiscount,"Total 1111")
+          callApiAddToCart(totalDiscount);
+        })
+        .catch(error => {
+          console.error('Error fetching cart data:', error);
+        });
+    } else {
+      console.log('else ');
+      callApiRemoveToCart();
+    }
+  }); {% endcomment %}
+
+
+
+  {% comment %} async function calculatePerPriceToFrontendData() {
+    try {
+      // Example value, make sure to set this to the correct value
+      let percentagePriceDataCheck = localStorage.getItem('percentage');
+      let mimimumCostPriceDataCheck = localStorage.getItem('mimimumCostPrice');
+  
+      // Ensure percentagePriceDataCheck is a valid number
+      percentagePriceDataCheck = parseFloat(percentagePriceDataCheck);
+      if (isNaN(percentagePriceDataCheck)) {
+        throw new Error('percentagePriceData is not a number');
+      }
+
+     
+      // Ensure mimimumCostPrice is a valid number
+      mimimumCostPriceDataCheck = parseFloat(mimimumCostPriceDataCheck);
+      if (isNaN(mimimumCostPriceDataCheck)) {
+         throw new Error('mimimumCostPrice is not a number');
+      }
+     
+         
+  
+      // Fetch cart data
+      const response = await fetch(window.Shopify.routes.root + 'cart.js');
+      const data = await response.json();
+  
+      // Calculate total discount excluding item with sku "002286"
+      const totalDiscountData = data.items.reduce((total, item) => {
+        return item.sku !== "002286" ? total + item.final_line_price : total;
+      }, 0);
+  
+      let totalDiscountAmontData = (totalDiscountData / 100);
+      if (totalDiscountAmontData === 0) {
+        totalDiscountAmontData = null;
+      }
+  
+      // Create a number formatter based on the cart's currency
+      const currencyFormatter = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: data.currency,
+      });
+  
+      // Calculate the price based on percentage
+      if (totalDiscountAmontData !== null) {
+        const calculatedPrice = totalDiscountAmontData * (percentagePriceDataCheck / 100);
+        let formattedPrice;
+
+        if (percentagePriceDataCheck > mimimumCostPriceDataCheck) {
+            formattedPrice = currencyFormatter.format(percentagePriceDataCheck);
+        } else {
+            formattedPrice = currencyFormatter.format(mimimumCostPriceDataCheck);
+        }
+
+      
+  
+        // Display the formattedPrice in the HTML element
+        const priceElement = document.querySelector(".price-calculatePerPriceToFrontendData");
+        if (priceElement) {
+          priceElement.textContent = formattedPrice;
+        } else {
+          console.error('Element with class "price-calculatePerPriceToFrontend" not found');
+        }
+      } else {
+        console.log('Total discount amount is null, skipping calculation.');
+      }
+  
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }; {% endcomment %}
+
+  async function calculatePerPriceToFrontendData() {
+    try {
+        // Retrieve values from localStorage and validate them
+        let percentagePriceDataCheck = localStorage.getItem('percentage');
+        let mimimumCostPriceDataCheck = localStorage.getItem('mimimumCostPrice');
+
+        percentagePriceDataCheck = parseFloat(percentagePriceDataCheck);
+        mimimumCostPriceDataCheck = parseFloat(mimimumCostPriceDataCheck);
+
+        if (isNaN(percentagePriceDataCheck)) {
+            throw new Error('percentagePriceData is not a number');
+        }
+
+        if (isNaN(mimimumCostPriceDataCheck)) {
+            throw new Error('mimimumCostPrice is not a number');
+        }
+
+        // Fetch cart data
+        const response = await fetch( 'cart.js');
+        const data = await response.json();
+
+        // Calculate total discount excluding item with sku "002286"
+        const totalDiscountData = data.items.reduce((total, item) => {
+            return item.sku !== "002286" ? total + item.final_line_price : total;
+        }, 0);
+
+        let totalDiscountAmontData = totalDiscountData / 100;
+        if (totalDiscountAmontData === 0) {
+            totalDiscountAmontData = null;
+        }
+
+        // Create a currency formatter based on the cart's currency
+        const currencyFormatter = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: data.currency,
+        });
+
+        if (totalDiscountAmontData !== null) {
+            // Calculate the price based on percentage
+            const calculatedPrice = totalDiscountAmontData * (percentagePriceDataCheck / 100);
+            let finalPrice;
+
+            // Compare the calculated price with mimimumCostPriceDataCheck
+            if (calculatedPrice < mimimumCostPriceDataCheck) {
+                finalPrice = mimimumCostPriceDataCheck;
+            } else {
+                finalPrice = calculatedPrice;
+            }
+
+            // Format the final price with currency sign
+            const formattedPrice = currencyFormatter.format(finalPrice);
+
+            // Display the formatted price in the HTML element
+            const priceElement = document.querySelector(".price-calculatePerPriceToFrontendData");
+            if (priceElement) {
+                priceElement.textContent = formattedPrice;
+            } else {
+                console.error('Element with class "price-calculatePerPriceToFrontendData" not found');
+            }
+        } else {
+            console.log('Total discount amount is null, skipping calculation.');
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+    }
+  };
+
+
+
+  
+  calculatePerPriceToFrontendData();
+  
+
+
+  function callApiAddToCart(totalDiscount) {
+    var t = localStorage.getItem('variantIdsString');
+    let variantId = localStorage.getItem('variantIdData');
+    console.log(variantId,"stored in localStorage")
+    let totalDiscountAmont = (totalDiscount/100) 
+    if (totalDiscountAmont === 0){
+      totalDiscountAmont = null;
+    }
+    console.log(totalDiscountAmont,"totalDiscountAmont", "percentagePriceData",percentagePriceData, "mimimumCostPriceData",mimimumCostPriceData);
+    (t = {
+      items: [
+        {
+          id: variantId,
+          quantity: 1,
+          properties: {
+            _discount_price:totalDiscountAmont,
+            _Insurance: `${percentagePriceData}%`,
+            _minmum_price: `${mimimumCostPriceData}`,
+            _hidden_product: true
+          },
+        },
+      ],
+    }),
+      fetch( 'cart/add.js', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(t),
+      })
+        .then((t) => (t.json()))
+        .catch((t) => {
+          console.error('Error:', t);
+        });
+  }
+  function callupdatecart(totleDiscount) {
+    var t = localStorage.getItem('variantIdsString');
+    let variantId = localStorage.getItem('variantIdData');
+    (t = {
+      id: variantId,
+      quantity: 0,
+    }),
+      fetch('cart/change.js', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(t),
+      })
+        .then((t) => ( callApiAddToCart(totleDiscount)))
+        .catch((t) => {
+          console.error('Error:', t);
+        });
+  }
+  function callApiRemoveToCart() {
+    var t = localStorage.getItem('variantIdsString');
+    let variantId = localStorage.getItem('variantIdData');
+    (t = {
+      id: variantId,
+      quantity: 0,
+    }),
+      fetch('cart/change.js', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(t),
+      })
+        .then((t) => ((window.location.href = ''), t.json()))
+        .catch((t) => {
+          console.error('Error:', t);
+        });
+  }
+</script>
+<style>
+  small.price-calculatePerPriceToFrontendData {
+    position: absolute;
+    top: 12px;
+    margin-left: 4px;
+  }
+
+  .tagline h2 {
+    font-size: 24px !important;
+    font-family: -apple-system, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+      'Open Sans', 'Helvetica Neue', sans-serif;
+    font-weight: 500;
+  }
+  .tagline p {
+    font-size: 15px !important;
+    font-family: -apple-system, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
+      'Open Sans', 'Helvetica Neue', sans-serif;
+  }
+  .toggle-container.hidden {
+    display: none !important;
+  }
+  .flex-col {
+    display: flex;
+    column-gap: 0 !important;
+    align-items: center;
+    margin-bottom: 0px !important;
+  }
+  span.more-banner {
+    display: flex;
+    background: #00f;
+    height: 50px;
+    width: 50px;
+    border-radius: 10px;
+  }
+  .flex-col .tagline h2,
+  .flex-col .tagline p {
+    margin: 0;
+    padding: 0;
+    color: #000;
+  }
+  .flex-col .tagline h2 {
+    font-size: 15px !important;
+    letter-spacing: 0;
+    line-height: 22px;
+  }
+  .flex-col .tagline p {
+    font-size: 12px !important;
+    letter-spacing: 0;
+    line-height: 20px;
+  }
+  .toggle-container {
+    display: flex;
+    column-gap: 10px;
+    justify-content: flex-start;
+    align-items: center;
+    box-shadow: 1px 2px 3px #ccc;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    display: flex !important;
+    position: relative;
+  }
+  .flex-col {
+    display: flex;
+    column-gap: 30px;
+    align-items: center;
+  }
+  .switch {
+    position: absolute;
+    display: inline-block;
+    width: 51px;
+    height: 28px;
+    right: 10px;
+  }
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    -webkit-transition: 0.4s;
+    transition: 0.4s;
+    border-radius: 34px;
+  }
+  .slider:before {
+    position: absolute;
+    content: '';
+    height: 22px;
+    width: 22px;
+    left: 1px;
+    bottom: 3px;
+    background-color: #fff;
+    -webkit-transition: 0.4s;
+    transition: 0.4s;
+    border-radius: 50%;
+  }
+  input:checked + .slider {
+    background-color: #385df4;
+  }
+  input:focus + .slider {
+    box-shadow: 0 0 1px #2196f3;
+  }
+  input:checked + .slider:before {
+    -webkit-transform: translateX(26px);
+    -ms-transform: translateX(26px);
+    transform: translateX(26px);
+  }
+  #toggleStatus {
+    margin-top: 10px;
+  }
+  .blue-box {
+    width: 50px;
+    height: 50px;
+    color: #385df4;
+    border-radius: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .toggle-container .tagline {
+    max-width: 80%;
+  }
+  @media screen and (max-width: 749px) {
+    .toggle-container {
+      justify-content: center;
+      max-width: 350px;
+      float: none;
+      margin: 0 auto;
+    }
+  }
+  @media screen and (max-width: 427px) {
+    input:checked + .slider:before {
+      -webkit-transform: translateX(23px);
+      -ms-transform: translateX(23px);
+      transform: translateX(23px);
+    }
+  }
+  @media screen and (max-width: 333px) {
+    .blue-box {
+      width: 45px;
+    }
+    .toggle-container .tagline {
+      max-width: 75%;
+    }
+  }
+</style>
